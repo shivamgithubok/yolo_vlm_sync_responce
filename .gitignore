@@ -1,0 +1,60 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.Python
+backend/events/
+New folder/
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv
+
+# YOLO
+*.pt
+*.onnx
+*.engine
+runs/
+weights/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Environment variables
+.env
+.env.local
+backend/old
+backend/basic.py
+backend/detections.db
+backend/tracking_data.db
+backend/yolo8n.pt
+test/
+test_0/
+test1/
+test2/
+backend/test_database_refactor.py/
+backend/vlm_test.py/
+backend/Database_check_convert/
+backend/ai_modules_v
+backend/old_qween_approch
+backend/backup
+readme
+events
+backend/orchestration

@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Object Tracking Stream</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1>🎯 Real-Time Object Tracking</h1>
+            <div class="connection-status" id="connectionStatus">
+                <span class="status-dot"></span>
+                <span class="status-text">Disconnected</span>
+            </div>
+        </header>
+
+        <!-- Tab Navigation -->
+        <nav class="tab-nav">
+            <button class="tab-btn active" data-tab="live">📹 Live Stream</button>
+            <button class="tab-btn" data-tab="events">🎬 Recorded Events</button>
+            <button class="tab-btn" data-tab="stats">Statistics and Analysis</button>
+        </nav>
+
+        <!-- Tab Content -->
+        <div class="tab-content">
+            <!-- Live Stream Tab -->
+            <div id="liveTab" class="tab-pane active">
+                <div class="content">
+                    <!-- Video Stream -->
+                    <div class="same_way">
+                        <div class="video-container">
+                            <canvas id="videoCanvas"></canvas>
+                            <div class="video-overlay" id="videoOverlay">
+                                <p>Connecting to stream...</p>
+                            </div>
+                        </div>
+                        <div class="same_way_1">
+                            <!-- Active Tracking Panel -->
+                            <div class="panel">
+                                <div class="panel-header">
+                                    <h2>️ Active Tracking</h2>
+                                    <span class="badge" id="activeTrackCount">0</span>
+                                </div>
+                                <div id="activeTracks" class="active-tracks">
+                                    <p class="status-inactive">No objects currently tracked</p>
+                                </div>
+                            </div>
+
+                            <!-- Recent History Panel -->
+                            <div class="panel">
+                                <div class="panel-header">
+                                    <h2>📜 Recent History (10m)</h2>
+                                    <span class="badge" id="historySpeciesCount">0</span>
+                                </div>
+                                <div id="historyTracks" class="history-tracks">
+                                    <p class="status-inactive">No recent unique species</p>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+
+                    <!-- Sidebar -->
+                    <aside class="sidebar">
+                        <!-- Stats Panel -->
+                        <div class="panel">
+                            <h2>📊 Stream Stats</h2>
+                            <div class="stats-grid">
+                                <div class="stat-item">
+                                    <span class="stat-label">FPS</span>
+                                    <span class="stat-value" id="fps">0</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-label">Frames</span>
+                                    <span class="stat-value" id="frameCount">0</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-label">Latency</span>
+                                    <span class="stat-value" id="latency">0 ms</span>
+                                </div>
+                                <div class="stat-item">
+                                    <span class="stat-label">Objects</span>
+                                    <span class="stat-value" id="objectCount">0</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Deleted Active Tracking from here -->
+
+                        <!-- Recording Status Panel -->
+                        <div class="panel">
+                            <h2>🔴 Recording Status</h2>
+                            <div class="recording-status" id="recordingStatus">
+                                <p class="status-inactive">No active recordings</p>
+                            </div>
+                        </div>
+
+                        <!-- VLM Selection Panel (Locked to Qween) -->
+                        <div class="panel">
+                            <h2>🧠 AI identification</h2>
+                            <div class="vlm-status" id="vlmStatusText">
+                                Status: <strong>Qween Cloud (VL) Active</strong>
+                            </div>
+                        </div>
+
+                        <!-- Controls -->
+                        <div class="panel">
+                            <h2>🎮 Controls</h2>
+                            <div class="controls">
+                                <button id="connectBtn" class="btn btn-primary">Connect</button>
+                                <button id="disconnectBtn" class="btn btn-secondary" disabled>Disconnect</button>
+                            </div>
+                        </div>
+                    </aside>
+                </div>
+            </div>
+
+            <!-- Events Tab -->
+            <div id="eventsTab" class="tab-pane">
+                <div class="events-layout">
+                    <!-- Events List -->
+                    <div class="events-list-container">
+                        <div class="panel">
+                            <div class="panel-header">
+                                <h2>📋 Recorded Events</h2>
+                                <button id="refreshEventsBtn" class="btn-icon" title="Refresh">🔄</button>
+                            </div>
+                            <div class="events-filter">
+                                <input type="text" id="eventSearch" placeholder="Search events..." class="search-input">
+                                <select id="classFilter" class="filter-select">
+                                    <option value="">All Classes</option>
+                                </select>
+                            </div>
+                            <div id="eventsList" class="events-list">
+                                <p class="loading-text">Loading events...</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Video Player -->
+                    <div class="video-player-container">
+                        <div class="panel">
+                            <h2>🎥 Event Playback</h2>
+                            <div id="videoPlayerArea" class="video-player-area">
+                                <div class="no-selection">
+                                    <p>Select an event to view</p>
+                                </div>
+                            </div>
+                            <div id="eventMetadata" class="event-metadata hidden">
+                                <!-- Event details will be populated here -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>Powered by YOLO + FastAPI + WebSocket</p>
+        </footer>
+    </div>
+
+    <!-- Detail Modal -->
+    <div id="detailModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle">Object Details</h2>
+                <button class="close-btn" id="closeModal">&times;</button>
+            </div>
+            <div id="modalBody" class="modal-body">
+                <!-- Content will be populated by JS -->
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+
+</html>
