@@ -939,7 +939,255 @@ document.addEventListener('DOMContentLoaded', () => {
     const streamClient = new VideoStreamClient();
     const eventsManager = new EventsManager();
     const tabManager = new TabManager();
+    const chatManager = new ChatManager();
 
     // Auto-connect on load
     setTimeout(() => streamClient.connect(), 500);
 });
+
+// ============================================
+// CHATBOT MANAGER
+// ============================================
+
+class ChatManager {
+    constructor() {
+        this.elements = {
+            chatMessages: document.getElementById('chatMessages'),
+            chatInput: document.getElementById('chatInput'),
+            sendBtn: document.getElementById('sendChatBtn'),
+            clearBtn: document.getElementById('clearChatBtn')
+        };
+
+        this.setupEventListeners();
+    }
+
+    setupEventListeners() {
+        // Send button click
+        this.elements.sendBtn.addEventListener('click', () => this.sendMessage());
+
+        // Enter key in input
+        this.elements.chatInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                this.sendMessage();
+            }
+        });
+
+        // Clear chat button
+        this.elements.clearBtn.addEventListener('click', () => this.clearChat());
+
+        // Sample query buttons
+        document.addEventListener('click', (e) => {
+            if (e.target.classList.contains('sample-query-btn')) {
+                const query = e.target.dataset.query;
+                this.elements.chatInput.value = query;
+                this.sendMessage();
+            }
+        });
+    }
+
+    async sendMessage() {
+        const query = this.elements.chatInput.value.trim();
+        if (!query) return;
+
+        // Clear input
+        this.elements.chatInput.value = '';
+
+        // Remove welcome message if present
+        const welcome = this.elements.chatMessages.querySelector('.chat-welcome');
+        if (welcome) welcome.remove();
+
+        // Add user message
+        this.addUserMessage(query);
+
+        // Add loading indicator
+        const loadingId = this.addLoadingMessage();
+
+        try {
+            // Send request to backend
+            const response = await fetch('/api/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ query })
+            });
+
+            const result = await response.json();
+
+            // Remove loading indicator
+            this.removeLoadingMessage(loadingId);
+
+            // Add assistant response
+            this.addAssistantMessage(result);
+
+        } catch (error) {
+            console.error('Chat error:', error);
+            this.removeLoadingMessage(loadingId);
+            this.addErrorMessage('Failed to process query. Please try again.');
+        }
+
+        // Scroll to bottom
+        this.scrollToBottom();
+    }
+
+    addUserMessage(text) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'chat-message user';
+        messageDiv.innerHTML = `
+            <div class="chat-message-avatar">👤</div>
+            <div class="chat-message-content">
+                <div class="chat-message-bubble">
+                    <div class="chat-message-text">${this.escapeHtml(text)}</div>
+                </div>
+                <div class="chat-message-meta">${new Date().toLocaleTimeString()}</div>
+            </div>
+        `;
+        this.elements.chatMessages.appendChild(messageDiv);
+    }
+
+    addAssistantMessage(result) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'chat-message assistant';
+
+        let contentHtml = '';
+
+        // Add main response text
+        if (result.messages && result.messages.length > 0) {
+            contentHtml += `<div class="chat-message-text">${this.escapeHtml(result.messages[0])}</div>`;
+        }
+
+        // Add SQL query if available
+        if (result.sql_query) {
+            contentHtml += `
+                <div class="chat-sql-query">
+                    <div class="chat-sql-query-label">Generated SQL:</div>
+                    <div class="chat-sql-query-text">${this.escapeHtml(result.sql_query)}</div>
+                </div>
+            `;
+        }
+
+        // Add data table if available
+        if (result.data && result.data.length > 0) {
+            contentHtml += this.createDataTable(result.data);
+            contentHtml += `<div class="chat-row-count">✓ ${result.row_count} row(s) returned</div>`;
+        }
+
+        // Add error if present
+        if (result.error) {
+            contentHtml += `<div class="chat-error">⚠️ ${this.escapeHtml(result.error)}</div>`;
+        }
+
+        messageDiv.innerHTML = `
+            <div class="chat-message-avatar">🤖</div>
+            <div class="chat-message-content">
+                <div class="chat-message-bubble">
+                    ${contentHtml}
+                </div>
+                <div class="chat-message-meta">${new Date().toLocaleTimeString()}</div>
+            </div>
+        `;
+
+        this.elements.chatMessages.appendChild(messageDiv);
+    }
+
+    createDataTable(data) {
+        if (!data || data.length === 0) return '';
+
+        const columns = Object.keys(data[0]);
+        const maxRows = 10; // Limit display to 10 rows
+        const displayData = data.slice(0, maxRows);
+
+        let html = '<div class="chat-data-table"><table><thead><tr>';
+
+        // Table headers
+        columns.forEach(col => {
+            html += `<th>${this.escapeHtml(col)}</th>`;
+        });
+        html += '</tr></thead><tbody>';
+
+        // Table rows
+        displayData.forEach(row => {
+            html += '<tr>';
+            columns.forEach(col => {
+                const value = row[col];
+                html += `<td>${value !== null && value !== undefined ? this.escapeHtml(String(value)) : '-'}</td>`;
+            });
+            html += '</tr>';
+        });
+
+        html += '</tbody></table></div>';
+
+        if (data.length > maxRows) {
+            html += `<div class="chat-message-meta" style="margin-top: 8px; text-align: center;">Showing ${maxRows} of ${data.length} rows</div>`;
+        }
+
+        return html;
+    }
+
+    addLoadingMessage() {
+        const loadingId = 'loading-' + Date.now();
+        const loadingDiv = document.createElement('div');
+        loadingDiv.id = loadingId;
+        loadingDiv.className = 'chat-message assistant';
+        loadingDiv.innerHTML = `
+            <div class="chat-message-avatar">🤖</div>
+            <div class="chat-message-content">
+                <div class="chat-loading">
+                    <div class="chat-loading-spinner"></div>
+                    <span>Processing your query...</span>
+                </div>
+            </div>
+        `;
+        this.elements.chatMessages.appendChild(loadingDiv);
+        this.scrollToBottom();
+        return loadingId;
+    }
+
+    removeLoadingMessage(loadingId) {
+        const loadingDiv = document.getElementById(loadingId);
+        if (loadingDiv) loadingDiv.remove();
+    }
+
+    addErrorMessage(message) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'chat-message assistant';
+        messageDiv.innerHTML = `
+            <div class="chat-message-avatar">🤖</div>
+            <div class="chat-message-content">
+                <div class="chat-message-bubble">
+                    <div class="chat-error">⚠️ ${this.escapeHtml(message)}</div>
+                </div>
+                <div class="chat-message-meta">${new Date().toLocaleTimeString()}</div>
+            </div>
+        `;
+        this.elements.chatMessages.appendChild(messageDiv);
+    }
+
+    clearChat() {
+        this.elements.chatMessages.innerHTML = `
+            <div class="chat-welcome">
+                <h3>👋 Welcome to the AI Assistant!</h3>
+                <p>Ask me anything about the tracked animals in the database. I can help you query detection data, statistics, and more.</p>
+                
+                <div class="sample-queries">
+                    <p><strong>Try these sample queries:</strong></p>
+                    <button class="sample-query-btn" data-query="Show me the last 5 detected animals">Show me the last 5 detected animals</button>
+                    <button class="sample-query-btn" data-query="What animals were detected today?">What animals were detected today?</button>
+                    <button class="sample-query-btn" data-query="How many unique species have been verified?">How many unique species have been verified?</button>
+                    <button class="sample-query-btn" data-query="Show all dangerous animals detected">Show all dangerous animals detected</button>
+                </div>
+            </div>
+        `;
+    }
+
+    scrollToBottom() {
+        this.elements.chatMessages.scrollTop = this.elements.chatMessages.scrollHeight;
+    }
+
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+}

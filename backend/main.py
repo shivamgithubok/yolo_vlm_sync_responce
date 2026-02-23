@@ -333,27 +333,77 @@ async def set_vlm_mode(data: Dict[str, str]):
 
 # ---------------- API QUERY ENDPOINT ---------------- #
 
-# from pydantic import BaseModel
-# from orchestration.sql_agents import agent
+from pydantic import BaseModel
+import agents
 
-# class QueryRequest(BaseModel):
-#     query: str
+class ChatRequest(BaseModel):
+    query: str
 
-# @app.post("/api/query")
-# async def query_data(request: QueryRequest):
-#     """
-#     Execute a natural language query against the tracking database.
-#     """
-#     try:
-#         response = agent.invoke({"user_query": request.query})
-#         return {
-#             "query": request.query,
-#             "sql": response.get("sql_query"),
-#             "result": response.get("result")
-#         }
-#     except Exception as e:
-#         print(f"✗ Query execution failed: {e}")
-#         raise HTTPException(status_code=500, detail=str(e))
+@app.post("/api/chat")
+async def chat_query(request: ChatRequest):
+    """
+    Process natural language query using agents.py orchestration.
+    Converts natural language to SQL, executes against database, and returns results.
+    """
+    try:
+        print(f"📝 Processing chat query: {request.query}")
+        
+        # Invoke the agent workflow
+        initial_state = {
+            "query": request.query,
+            "messages": [],
+            "attempts": 0,
+            "sql_query": "",
+            "data": [],
+            "error": None
+        }
+        
+        
+        result = agents.app.invoke(initial_state)
+        
+        # Extract results
+        sql_query = result.get("sql_query", "")
+        data = result.get("data", [])
+        error = result.get("error")
+        messages = result.get("messages", [])
+        content = result.get("content", "")
+        
+        # Convert NaN values to None for JSON compliance
+        import math
+        if data:
+            for row in data:
+                for key, value in row.items():
+                    if isinstance(value, float) and math.isnan(value):
+                        row[key] = None
+        
+        # Format response
+        response = {
+            "success": not error and len(data) > 0,
+            "query": request.query,
+            "sql_query": sql_query,
+            "data": data,
+            "error": error,
+            "messages": messages,
+            "content": content,
+            "row_count": len(data) if data else 0
+        }
+        
+        print(f"✓ Query processed: {len(data)} rows returned")
+        return response
+        
+    except Exception as e:
+        print(f"✗ Chat query failed: {e}")
+        import traceback
+        traceback.print_exc()
+        return {
+            "success": False,
+            # "query": request.query,
+            "sql_query": "",
+            "data": [],
+            "error": str(e),
+            "messages": [f"Error processing query: {str(e)}"],
+            "row_count": 0
+        }
 
 # ---------------- WEBSOCKET STREAM ---------------- #
 
